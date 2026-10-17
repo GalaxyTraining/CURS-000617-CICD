@@ -7,6 +7,8 @@ import pe.edu.galaxy.training.ia.ca.application.port.in.AuthenticateUserUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.BootstrapAdministratorUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.CreateUserUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.GetCurrentUserUseCase;
+import pe.edu.galaxy.training.ia.ca.application.port.in.GetEmployeeUseCase;
+import pe.edu.galaxy.training.ia.ca.application.port.in.ListEmployeesUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.LogoutUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.RefreshTokenUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.RegisterEmployeeUseCase;
@@ -22,6 +24,8 @@ import pe.edu.galaxy.training.ia.ca.application.usecase.AuthenticateUserService;
 import pe.edu.galaxy.training.ia.ca.application.usecase.BootstrapAdministratorService;
 import pe.edu.galaxy.training.ia.ca.application.usecase.CreateUserService;
 import pe.edu.galaxy.training.ia.ca.application.usecase.GetCurrentUserService;
+import pe.edu.galaxy.training.ia.ca.application.usecase.GetEmployeeService;
+import pe.edu.galaxy.training.ia.ca.application.usecase.ListEmployeesService;
 import pe.edu.galaxy.training.ia.ca.application.usecase.LogoutService;
 import pe.edu.galaxy.training.ia.ca.application.usecase.RefreshTokenService;
 import pe.edu.galaxy.training.ia.ca.application.usecase.RegisterEmployeeService;
@@ -39,6 +43,16 @@ public class UseCaseConfig {
     @Bean
     UpdateEmployeeUseCase updateEmployeeUseCase(EmployeeRepositoryPort employeeRepository) {
         return new UpdateEmployeeService(employeeRepository);
+    }
+
+    @Bean
+    GetEmployeeUseCase getEmployeeUseCase(EmployeeRepositoryPort employeeRepository) {
+        return new GetEmployeeService(employeeRepository);
+    }
+
+    @Bean
+    ListEmployeesUseCase listEmployeesUseCase(EmployeeRepositoryPort employeeRepository) {
+        return new ListEmployeesService(employeeRepository);
     }
 
     @Bean

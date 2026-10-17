@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -27,6 +29,13 @@ import pe.edu.galaxy.training.ia.ca.application.dto.UpdateEmployeeCommand;
 import pe.edu.galaxy.training.ia.ca.application.exception.DuplicateEmployeeDocumentException;
 import pe.edu.galaxy.training.ia.ca.application.exception.EmployeeNotFoundException;
 import pe.edu.galaxy.training.ia.ca.application.port.in.RegisterEmployeeUseCase;
+import pe.edu.galaxy.training.ia.ca.application.dto.EmployeeQuery;
+import pe.edu.galaxy.training.ia.ca.application.dto.EmployeeSearchQuery;
+import pe.edu.galaxy.training.ia.ca.application.dto.EmployeeSortField;
+import pe.edu.galaxy.training.ia.ca.application.dto.PageResult;
+import pe.edu.galaxy.training.ia.ca.application.dto.SortDirection;
+import pe.edu.galaxy.training.ia.ca.application.port.in.GetEmployeeUseCase;
+import pe.edu.galaxy.training.ia.ca.application.port.in.ListEmployeesUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.UpdateEmployeeUseCase;
 import pe.edu.galaxy.training.ia.ca.domain.common.exception.InvalidValueException;
 import pe.edu.galaxy.training.ia.ca.domain.employee.exception.InvalidDocumentNumberException;
@@ -65,6 +74,12 @@ class EmployeeControllerTest {
 
     @MockitoBean
     private UpdateEmployeeUseCase updateEmployeeUseCase;
+
+    @MockitoBean
+    private GetEmployeeUseCase getEmployeeUseCase;
+
+    @MockitoBean
+    private ListEmployeesUseCase listEmployeesUseCase;
 
     @Test
     void shouldReturnCreatedWithLocationWhenRequestIsValid() throws Exception {
@@ -213,5 +228,119 @@ class EmployeeControllerTest {
                         .content(VALID_UPDATE_BODY))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("VAL-001"));
+    }
+
+    // --- consulta ---
+
+    @Test
+    void shouldReturnEmployeeWhenItExists() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        when(getEmployeeUseCase.get(new EmployeeQuery(id))).thenReturn(
+                new EmployeeResult(id, DocumentType.DNI, "12345678", "Ana", "Pérez", "ana@example.com"));
+
+        // When / Then
+        mockMvc.perform(get(URL + "/" + id).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.lastNames").value("Pérez"));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenEmployeeToGetDoesNotExist() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        when(getEmployeeUseCase.get(any())).thenThrow(new EmployeeNotFoundException(new EmployeeId(id)));
+
+        // When / Then
+        mockMvc.perform(get(URL + "/" + id).with(jwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("EMP-404"));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenEmployeeIdToGetIsNotUuid() throws Exception {
+        mockMvc.perform(get(URL + "/not-a-uuid").with(jwt()))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(getEmployeeUseCase);
+    }
+
+    @Test
+    void shouldReturnUnauthorizedWhenGettingEmployeeWithoutToken() throws Exception {
+        mockMvc.perform(get(URL + "/" + UUID.randomUUID()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH-003"));
+        verifyNoInteractions(getEmployeeUseCase);
+    }
+
+    // --- listado ---
+
+    @Test
+    void shouldApplyDefaultsAndReturnPageWhenListingWithoutParameters() throws Exception {
+        // Given
+        UUID id = UUID.randomUUID();
+        when(listEmployeesUseCase.list(any())).thenReturn(new PageResult<>(List.of(
+                new EmployeeResult(id, DocumentType.DNI, "12345678", "Ana", "Pérez", "ana@example.com")), 0, 20, 41));
+
+        // When / Then
+        mockMvc.perform(get(URL).with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(id.toString()))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(41))
+                .andExpect(jsonPath("$.totalPages").value(3));
+        verify(listEmployeesUseCase).list(new EmployeeSearchQuery(null, null, null, 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC));
+    }
+
+    @Test
+    void shouldMapFiltersPagingAndSortWhenListingWithParameters() throws Exception {
+        // Given
+        when(listEmployeesUseCase.list(any())).thenReturn(new PageResult<>(List.of(), 2, 5, 0));
+
+        // When / Then
+        mockMvc.perform(get(URL).with(jwt())
+                        .param("documentType", "DNI").param("documentNumber", "12345678")
+                        .param("name", "pérez").param("page", "2").param("size", "5")
+                        .param("sort", "documentNumber,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+        verify(listEmployeesUseCase).list(new EmployeeSearchQuery(DocumentType.DNI, "12345678", "pérez", 2, 5,
+                EmployeeSortField.DOCUMENT_NUMBER, SortDirection.DESC));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenPageSizeExceedsMaximum() throws Exception {
+        mockMvc.perform(get(URL).with(jwt()).param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.errors[0].field").value("size"));
+        verifyNoInteractions(listEmployeesUseCase);
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenSortFieldIsNotAllowed() throws Exception {
+        mockMvc.perform(get(URL).with(jwt()).param("sort", "id,asc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("sort"));
+        verifyNoInteractions(listEmployeesUseCase);
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenDocumentNumberIsSentWithoutType() throws Exception {
+        mockMvc.perform(get(URL).with(jwt()).param("documentNumber", "12345678"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("documentFilterComplete"));
+        verifyNoInteractions(listEmployeesUseCase);
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenPageIsNotNumeric() throws Exception {
+        mockMvc.perform(get(URL).with(jwt()).param("page", "first"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+        verifyNoInteractions(listEmployeesUseCase);
     }
 }

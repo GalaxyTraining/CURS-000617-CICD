@@ -3,6 +3,7 @@ package pe.edu.galaxy.training.ia.ca.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -12,6 +13,10 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import pe.edu.galaxy.training.ia.ca.application.dto.EmployeeSearchQuery;
+import pe.edu.galaxy.training.ia.ca.application.dto.EmployeeSortField;
+import pe.edu.galaxy.training.ia.ca.application.dto.PageResult;
+import pe.edu.galaxy.training.ia.ca.application.dto.SortDirection;
 import pe.edu.galaxy.training.ia.ca.application.exception.DuplicateEmployeeDocumentException;
 import pe.edu.galaxy.training.ia.ca.domain.employee.model.Employee;
 import pe.edu.galaxy.training.ia.ca.domain.employee.vo.DocumentNumber;
@@ -87,5 +92,113 @@ class EmployeePersistenceAdapterTest {
     @Test
     void shouldReturnEmptyWhenEmployeeIdDoesNotExist() {
         assertThat(adapter.findById(EmployeeId.generate())).isEmpty();
+    }
+
+    // --- search (BR-EMP-004) ---
+
+    private void givenStaff() {
+        adapter.save(person("40000001", "José", "Pérez Gómez"));
+        adapter.save(person("40000002", "Ana María", "PEREZ Ruiz"));
+        adapter.save(person("40000003", "Luis", "Núñez"));
+        adapter.save(person("40000004", "Carla", "Ávila"));
+        adapter.save(person("40000005", "Raúl", "50%_Off"));
+    }
+
+    private static Employee person(String number, String firstNames, String lastNames) {
+        return Employee.register(new DocumentNumber(DocumentType.DNI, number), new FullName(firstNames, lastNames),
+                new Email("e" + number + "@example.com"));
+    }
+
+    private PageResult<Employee> search(DocumentType type, String number, String name, int page, int size,
+                                        EmployeeSortField field, SortDirection direction) {
+        return adapter.search(new EmployeeSearchQuery(type, number, name, page, size, field, direction));
+    }
+
+    private PageResult<Employee> searchByName(String name) {
+        return search(null, null, name, 0, 20, EmployeeSortField.LAST_NAMES, SortDirection.ASC);
+    }
+
+    private static List<String> lastNames(PageResult<Employee> page) {
+        return page.content().stream().map(employee -> employee.fullName().lastNames()).toList();
+    }
+
+    @Test
+    void shouldFindByPartialNameIgnoringCaseAndAccentsWhenSearchingByName() {
+        // Given
+        givenStaff();
+
+        // When / Then: "perez" encuentra "Pérez" y "PEREZ"; "NUNEZ" encuentra "Núñez"
+        assertThat(lastNames(searchByName("perez"))).containsExactlyInAnyOrder("Pérez Gómez", "PEREZ Ruiz");
+        assertThat(lastNames(searchByName("NUNEZ"))).containsExactly("Núñez");
+        assertThat(lastNames(searchByName("ávila"))).containsExactly("Ávila");
+    }
+
+    @Test
+    void shouldMatchAcrossFirstAndLastNamesWhenSearchTextSpansBoth() {
+        // Given
+        givenStaff();
+
+        // When / Then
+        assertThat(lastNames(searchByName("jose perez"))).containsExactly("Pérez Gómez");
+        assertThat(lastNames(searchByName("maría"))).containsExactly("PEREZ Ruiz");
+    }
+
+    @Test
+    void shouldTreatWildcardsLiterallyWhenNameContainsThem() {
+        // Given
+        givenStaff();
+
+        // When / Then: "%" no debe comportarse como comodín y devolver a todos
+        assertThat(lastNames(searchByName("%"))).containsExactly("50%_Off");
+        assertThat(lastNames(searchByName("_"))).containsExactly("50%_Off");
+    }
+
+    @Test
+    void shouldFindOnlyExactDocumentWhenSearchingByDocument() {
+        // Given
+        givenStaff();
+
+        // When
+        PageResult<Employee> page = search(DocumentType.DNI, "40000003", null, 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC);
+
+        // Then
+        assertThat(lastNames(page)).containsExactly("Núñez");
+        assertThat(search(DocumentType.FOREIGNER_CARD, "40000003", null, 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC).content()).isEmpty();
+        assertThat(search(DocumentType.DNI, "4000000", null, 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC).content()).isEmpty();
+    }
+
+    @Test
+    void shouldCombineDocumentAndNameFiltersWhenBothAreGiven() {
+        // Given
+        givenStaff();
+
+        // When / Then
+        assertThat(search(DocumentType.DNI, "40000003", "perez", 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC).content()).isEmpty();
+        assertThat(lastNames(search(DocumentType.DNI, "40000001", "perez", 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC))).containsExactly("Pérez Gómez");
+    }
+
+    @Test
+    void shouldPaginateAndSortWhenListingWithoutFilters() {
+        // Given
+        givenStaff();
+
+        // When
+        PageResult<Employee> first = search(null, null, null, 0, 2, EmployeeSortField.DOCUMENT_NUMBER,
+                SortDirection.DESC);
+        PageResult<Employee> last = search(null, null, null, 2, 2, EmployeeSortField.DOCUMENT_NUMBER,
+                SortDirection.DESC);
+
+        // Then
+        assertThat(first.totalElements()).isEqualTo(5);
+        assertThat(first.totalPages()).isEqualTo(3);
+        assertThat(first.content()).extracting(employee -> employee.documentNumber().value())
+                .containsExactly("40000005", "40000004");
+        assertThat(last.content()).extracting(employee -> employee.documentNumber().value())
+                .containsExactly("40000001");
     }
 }

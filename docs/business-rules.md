@@ -31,6 +31,7 @@ Usa exactamente estos términos en el código y en la documentación.
 | Renovación | `ContractRenewal` | Extensión de la fecha de fin de un contrato a plazo fijo vigente. |
 | Término / cese | `Termination` | Fin anticipado de un contrato vigente, con motivo y fecha. |
 | Empleado | `Employee` | Persona contratada, identificada por su documento. |
+| Estado del empleado | `EmployeeStatus` | `ACTIVE` o `INACTIVE` (baja lógica). Un empleado nunca se elimina (BR-EMP-005). |
 | Documento de identidad | `DocumentNumber` | DNI (8 dígitos) o carné de extranjería. |
 | Tipo de documento | `DocumentType` | `DNI` o `FOREIGNER_CARD` (carné de extranjería). Cada tipo define su regla de formato: DNI de 8 dígitos (BR-EMP-002); carné de extranjería no vacío (formato pendiente, §9). |
 | Estado del contrato | `ContractStatus` | `DRAFT`, `ACTIVE`, `TERMINATED`, `EXPIRED` o `CANCELLED`; transiciones en §5. |
@@ -70,6 +71,7 @@ Usa exactamente estos términos en el código y en la documentación.
 | `documentNumber` | `DocumentNumber` | Obligatorio y único (tipo + número). Inmutable (BR-EMP-003). |
 | `fullName` | `FullName` | Nombres y apellidos obligatorios. |
 | `email` | `Email` | Obligatorio, formato válido. |
+| `status` | `EmployeeStatus` | `ACTIVE` al registrar. Solo cambia al desactivar o reactivar (BR-EMP-005, 006, 008). |
 
 ### Agregado `User`
 
@@ -101,7 +103,12 @@ La relación `User` ↔ `Employee` está pendiente (§9) y es necesaria para BR-
 | BR-CTR-012 | Un empleado solo puede consultar sus propios contratos (`contract:read:own`); con `contract:read:all` se consulta cualquiera. | application | `AUTH-001` |
 | BR-EMP-001 | El documento de identidad de un empleado es único. | application | `EMP-001` |
 | BR-EMP-002 | El DNI tiene exactamente 8 dígitos. | domain | `EMP-002` |
-| BR-EMP-003 | Tras el registro solo se actualizan nombres y correo; el documento de identidad no se modifica. | domain | — |
+| BR-EMP-003 | Tras el registro solo se actualizan nombres y correo; el documento de identidad no se modifica. El estado solo cambia al desactivar o reactivar. | domain | — |
+| BR-EMP-004 | La búsqueda de empleados por nombre es parcial y no distingue mayúsculas ni tildes (busca en nombres y apellidos); por documento es exacta (tipo + número). | application | — |
+| BR-EMP-005 ⚖️ | Un empleado no se elimina: se desactiva (`INACTIVE`) y puede reactivarse. Sus datos se conservan. | domain | — |
+| BR-EMP-006 | No se puede desactivar un empleado que tenga algún contrato `ACTIVE`. | application | `EMP-003` |
+| BR-EMP-007 | No se crean contratos para un empleado `INACTIVE` (complementa BR-CTR-001). | application | `EMP-004` |
+| BR-EMP-008 | Solo se desactiva un empleado `ACTIVE` y solo se reactiva uno `INACTIVE`. | domain | `EMP-005` |
 | BR-USR-001 | El nombre de usuario es único, sin distinguir mayúsculas. | application | `AUTH-007` |
 | BR-USR-002 | El nombre de usuario tiene 3–50 caracteres: letras minúsculas, dígitos, `.`, `_` o `-`. Se normaliza a minúsculas. | domain | `VAL-001` |
 | BR-USR-003 | La contraseña tiene entre 12 y 64 caracteres y no supera 72 bytes en UTF-8 (límite de BCrypt). Sin reglas de composición (NIST SP 800-63B). | domain | `AUTH-008` |
@@ -117,6 +124,7 @@ La relación se carga con Flyway (`V3__seed_roles_permissions.sql`). Los permiso
 | Permiso | ADMIN | HR | EMPLOYEE |
 |---|:-:|:-:|:-:|
 | `employee:create`, `employee:update` | ✅ | ✅ | |
+| `employee:read` | ✅ | ✅ | |
 | `contract:create`, `contract:update`, `contract:sign`, `contract:renew`, `contract:terminate`, `contract:cancel` | ✅ | ✅ | |
 | `contract:read:all` | ✅ | ✅ | |
 | `contract:read:own` | | | ✅ |
@@ -153,7 +161,11 @@ stateDiagram-v2
 |---|---|---|---|---|
 | `RegisterEmployeeUseCase` | HR, Admin | `RegisterEmployeeCommand` | `EmployeeResult` | BR-EMP-001, 002 |
 | `UpdateEmployeeUseCase` | HR, Admin | `UpdateEmployeeCommand` | `EmployeeResult` | BR-EMP-003 |
-| `CreateContractUseCase` | HR, Admin | `CreateContractCommand` | `ContractResult` | BR-CTR-001–005, 010, 011 |
+| `GetEmployeeUseCase` | HR, Admin (`employee:read`) | `EmployeeQuery` | `EmployeeResult` | — |
+| `ListEmployeesUseCase` | HR, Admin (`employee:read`) | `EmployeeSearchQuery` (documento, nombre, estado) | `Page<EmployeeResult>` | BR-EMP-004 |
+| `DeactivateEmployeeUseCase` | HR, Admin (`employee:update`) | `DeactivateEmployeeCommand` | — | BR-EMP-005, 006, 008 |
+| `ReactivateEmployeeUseCase` | HR, Admin (`employee:update`) | `ReactivateEmployeeCommand` | — | BR-EMP-005, 008 |
+| `CreateContractUseCase` | HR, Admin | `CreateContractCommand` | `ContractResult` | BR-CTR-001–005, 010, 011, BR-EMP-007 |
 | `UpdateContractUseCase` | HR, Admin | `UpdateContractCommand` | `ContractResult` | BR-CTR-003, 004, 006, 011 |
 | `SignContractUseCase` | HR, Admin | `SignContractCommand` | `ContractResult` | BR-CTR-005, 011 |
 | `RenewContractUseCase` | HR, Admin | `RenewContractCommand` | `ContractResult` | BR-CTR-007, 008, 011 |
@@ -184,6 +196,20 @@ stateDiagram-v2
 3. Persistir y devolver `EmployeeResult`.
 
 No tiene restricciones por estado de los contratos del empleado ni emite evento de dominio.
+
+### Detalle: `ListEmployeesUseCase`
+
+1. Filtros opcionales y combinables: documento (tipo + número, exacto), nombre (parcial, sin mayúsculas ni tildes, en nombres y apellidos — BR-EMP-004) y estado (`ACTIVE` por defecto; `INACTIVE` o todos si se indica). El filtro por estado se incorpora junto con `DeactivateEmployeeUseCase`; hasta entonces todos los empleados están activos.
+2. Paginado y ordenado según `architecture.md` §6 (por defecto, apellidos ascendente).
+
+### Detalle: `DeactivateEmployeeUseCase`
+
+1. Cargar el empleado; si no existe → `EMP-404`.
+2. Si tiene algún contrato `ACTIVE` → `EMP-003` (BR-EMP-006).
+3. El dominio pasa el estado a `INACTIVE`; si ya lo estaba → `EMP-005` (BR-EMP-008).
+4. Persistir. No elimina datos ni modifica sus contratos (BR-EMP-005).
+
+`ReactivateEmployeeUseCase` sigue los pasos 1, 3 (hacia `ACTIVE`) y 4, sin el paso 2.
 
 ### Detalle: `CreateContractUseCase`
 
@@ -228,6 +254,9 @@ Todos los eventos incluyen además `eventId` (UUID), `occurredOn` (instante en q
 | `CTR-404` | `ContractNotFoundException` | 404 | El contrato no existe. |
 | `EMP-001` | `DuplicateEmployeeDocumentException` | 409 | Ya existe un empleado con ese documento. |
 | `EMP-002` | `InvalidDocumentNumberException` | 422 | El documento de identidad no es válido. |
+| `EMP-003` | `EmployeeHasActiveContractsException` | 409 | El empleado tiene contratos activos y no puede desactivarse. |
+| `EMP-004` | `InactiveEmployeeException` | 422 | El empleado está inactivo. |
+| `EMP-005` | `InvalidEmployeeStatusTransitionException` | 409 | El empleado ya está en el estado solicitado. |
 | `EMP-404` | `EmployeeNotFoundException` | 404 | El empleado no existe. |
 | `AUTH-001` | `AccessDeniedException` | 403 | No tiene permisos sobre este recurso. |
 | `AUTH-002` | `InvalidCredentialsException` | 401 | Usuario o contraseña incorrectos (también si el usuario está deshabilitado, si el username no tiene un formato válido o si la contraseña supera 72 bytes; el motivo real solo se audita). |
@@ -256,6 +285,8 @@ Reglas pendientes de confirmar. Claude no debe implementar suposiciones sobre es
 - [ ] ¿Solo moneda `PEN`? (Mientras tanto, `Salary` exige `PEN` según el glosario.)
 - [ ] ¿Qué formato tiene el carné de extranjería? Hoy solo se exige que no esté vacío.
 - [ ] ¿Qué valor tiene la RMV vigente y desde qué fecha? Confirmar con RR.HH. el valor de `contract.minimum-wage`.
+- [ ] ⚖️ ¿Cuánto tiempo deben conservarse los datos de un empleado inactivo? ¿Se anonimizan al vencer ese plazo? (Mientras tanto, se conservan indefinidamente — BR-EMP-005.)
+- [ ] ¿El rol `EMPLOYEE` puede consultar su propia ficha de empleado? Depende del vínculo `User` ↔ `Employee` (siguiente pregunta). (Mientras tanto, solo `employee:read`.)
 - [ ] ¿Un `User` se vincula como máximo a un `Employee`? ¿Es obligatorio para el rol `EMPLOYEE`? ¿Quién crea el vínculo? (Necesario para BR-CTR-012.)
 - [ ] ¿Solo `ADMIN` gestiona usuarios o `HR` puede crear usuarios `EMPLOYEE`? ¿Un usuario puede tener varios roles, o ninguno? (Mientras tanto, `user:manage` solo para `ADMIN` y se admiten varios roles.)
 - [ ] ¿Se bloquea la cuenta tras N intentos fallidos? ¿Con qué umbral y duración? (Mientras tanto, sin bloqueo.)

@@ -38,6 +38,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import pe.edu.galaxy.training.ia.ca.application.dto.EmployeeResult;
 import pe.edu.galaxy.training.ia.ca.application.port.in.RegisterEmployeeUseCase;
+import pe.edu.galaxy.training.ia.ca.application.port.in.GetEmployeeUseCase;
+import pe.edu.galaxy.training.ia.ca.application.port.in.ListEmployeesUseCase;
 import pe.edu.galaxy.training.ia.ca.application.port.in.UpdateEmployeeUseCase;
 import pe.edu.galaxy.training.ia.ca.domain.employee.vo.DocumentType;
 import pe.edu.galaxy.training.ia.ca.infrastructure.api.rest.EmployeeApiMapperImpl;
@@ -68,6 +70,12 @@ class SecurityFilterChainTest {
 
     @MockitoBean
     private UpdateEmployeeUseCase updateEmployeeUseCase;
+
+    @MockitoBean
+    private GetEmployeeUseCase getEmployeeUseCase;
+
+    @MockitoBean
+    private ListEmployeesUseCase listEmployeesUseCase;
 
     private String token(UnaryOperator<JwtClaimsSet.Builder> customizer) {
         return sign(rsaKeys.publicKey(), rsaKeys.privateKey(), customizer);

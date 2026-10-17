@@ -31,16 +31,25 @@ Contexto base del repositorio. Este archivo es el punto de entrada: es breve y e
 | Seguridad | Spring Security 6 + OAuth2 Resource Server (JWT RS256 con Nimbus); tokens propios (ADR-0005) |
 | Documentación API | springdoc-openapi (OpenAPI 3) |
 | Observabilidad | Micrometer + OpenTelemetry, logs estructurados en JSON |
-| Pruebas | JUnit 5, AssertJ, Mockito, Testcontainers, spring-security-test |
+| Pruebas | JUnit 5, AssertJ, Mockito, Testcontainers, spring-security-test; cobertura con JaCoCo (≥ 80 % de líneas en `domain` y `application`) |
+| CI/CD | GitHub Actions (`.github/workflows/ci-cd.yml`), imagen Docker en GHCR, GitHub Flow (ADR-0009) |
 
 ## 3. Comandos habituales
 
 ```bash
-./mvnw clean verify                   # Compilar y ejecutar todas las pruebas
+./mvnw clean verify                   # Compilar, ejecutar todas las pruebas y verificar la cobertura (igual que el CI)
 ./mvnw test -pl domain                # Pruebas de un módulo
 ./mvnw spring-boot:run -pl infrastructure  # Levantar la API
-docker compose up -d                  # Levantar dependencias locales
+docker compose up -d                  # Levantar dependencias locales (PostgreSQL y pgAdmin)
+docker build -t contract-api .        # Construir la imagen (perfil prod)
 ```
+
+## 3.1 Flujo de Git (GitHub Flow, ADR-0009)
+
+- `main` está protegida y siempre es desplegable: **nunca se hace commit ni push directo a `main`**.
+- Cada cambio va en una rama desde `main`: `feature/<tema>`, `fix/<tema>` o `docs/<tema>`, y entra por Pull Request con el CI en verde.
+- Los mensajes de commit van en español, en imperativo y describen el porqué.
+- Una versión se publica con un tag `vX.Y.Z` sobre `main`; el pipeline publica la imagen con esa etiqueta.
 
 ## 4. Cómo debe trabajar Claude en este repo
 
@@ -53,4 +62,5 @@ docker compose up -d                  # Levantar dependencias locales
 - Las decisiones arquitectónicas relevantes se registran como ADR en `docs/adr/NNNN-titulo.md` (contexto, decisión, alternativas, consecuencias).
 - Evita la sobreingeniería: no introduzcas CQRS, event sourcing ni nuevos módulos sin una necesidad justificada.
 - No añadas dependencias nuevas al `pom.xml` sin indicarlo y justificarlo.
-- Ejecuta `./mvnw clean verify` antes de dar una tarea por terminada.
+- Ejecuta `./mvnw clean verify` antes de dar una tarea por terminada: es lo mismo que ejecuta el CI, incluido el umbral de cobertura.
+- Si cambias el pipeline, el `Dockerfile` o el flujo de ramas, actualiza ADR-0009 o registra uno nuevo.

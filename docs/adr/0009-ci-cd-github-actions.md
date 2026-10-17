@@ -11,7 +11,7 @@ La API vivía como una carpeta más del repositorio del curso, junto a otras ver
 ## Decisión
 
 - **Repositorio propio** (`GalaxyTraining/CURS-000617-CICD`), extraído con `git subtree split` para conservar el historial de la v3.
-- **GitHub Flow:** `main` siempre desplegable; el trabajo se hace en ramas `feature/*`, `fix/*` o `docs/*` y entra por Pull Request con el CI en verde. Protección de rama en GitHub: PR obligatorio y checks `Build, pruebas y cobertura` e `Imagen Docker` requeridos.
+- **GitHub Flow:** `main` siempre desplegable; el trabajo se hace en ramas `feature/*`, `fix/*` o `docs/*` y entra por Pull Request con el CI en verde. Protección de `main` con el ruleset `main-protegida` (`.github/ruleset/main-protegida.json`): PR obligatorio (sin aprobaciones mínimas, solo *squash*), rama al día con `main`, checks `Build, pruebas y cobertura` e `Imagen Docker` requeridos, sin force push ni borrado.
 - **GitHub Actions** (`.github/workflows/ci-cd.yml`):
   - `build`: `./mvnw clean verify` con JDK 21, incluidas las pruebas con Testcontainers y la cobertura JaCoCo; publica los informes y un resumen de cobertura.
   - `image`: construye la imagen con el `Dockerfile` multi-stage; en un PR solo la construye, en `main` la publica en `ghcr.io` (`latest` + sha corto) y en un tag `vX.Y.Z` con las etiquetas de versión.
@@ -27,5 +27,5 @@ La API vivía como una carpeta más del repositorio del curso, junto a otras ver
 ## Consecuencias
 
 - Positivas: ningún cambio llega a `main` sin compilar, sin pruebas en verde ni por debajo del umbral de cobertura; cada integración en `main` produce una imagen versionada.
-- Negativas: las pruebas con Testcontainers alargan el pipeline; la protección de rama hay que configurarla en GitHub (no está en el repositorio).
+- Negativas: las pruebas con Testcontainers alargan el pipeline; el ruleset se versiona en `.github/ruleset/` pero se importa a mano en GitHub (Settings → Rules → Rulesets) y cualquier cambio hay que replicarlo allí; se aplica porque el repositorio es público (en uno privado requiere plan Pro o Team).
 - Seguimiento: despliegue (CD a un entorno), análisis de seguridad (CodeQL/Dependabot) y pruebas de API con Postman CLI quedan fuera de esta decisión.

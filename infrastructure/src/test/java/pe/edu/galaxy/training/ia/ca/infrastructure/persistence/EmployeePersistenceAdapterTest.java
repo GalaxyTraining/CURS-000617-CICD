@@ -171,18 +171,6 @@ class EmployeePersistenceAdapterTest {
     }
 
     @Test
-    void shouldCombineDocumentAndNameFiltersWhenBothAreGiven() {
-        // Given
-        givenStaff();
-
-        // When / Then
-        assertThat(search(DocumentType.DNI, "40000003", "perez", 0, 20,
-                EmployeeSortField.LAST_NAMES, SortDirection.ASC).content()).isEmpty();
-        assertThat(lastNames(search(DocumentType.DNI, "40000001", "perez", 0, 20,
-                EmployeeSortField.LAST_NAMES, SortDirection.ASC))).containsExactly("Pérez Gómez");
-    }
-
-    @Test
     void shouldPaginateAndSortWhenListingWithoutFilters() {
         // Given
         givenStaff();

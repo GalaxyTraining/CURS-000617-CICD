@@ -104,7 +104,7 @@ La relación `User` ↔ `Employee` está pendiente (§9) y es necesaria para BR-
 | BR-EMP-001 | El documento de identidad de un empleado es único. | application | `EMP-001` |
 | BR-EMP-002 | El DNI tiene exactamente 8 dígitos. | domain | `EMP-002` |
 | BR-EMP-003 | Tras el registro solo se actualizan nombres y correo; el documento de identidad no se modifica. El estado solo cambia al desactivar o reactivar. | domain | — |
-| BR-EMP-004 | La búsqueda de empleados por nombre es parcial y no distingue mayúsculas ni tildes (busca en nombres y apellidos); por documento es exacta (tipo + número). | application | — |
+| BR-EMP-004 | Hay dos formas de búsqueda de empleados, excluyentes: por documento, exacta (tipo + número; devuelve 0 o 1 empleado por BR-EMP-001), o por nombre, parcial y sin distinguir mayúsculas ni tildes (en nombres y apellidos). No se combinan. | application | `VAL-001` |
 | BR-EMP-005 ⚖️ | Un empleado no se elimina: se desactiva (`INACTIVE`) y puede reactivarse. Sus datos se conservan. | domain | — |
 | BR-EMP-006 | No se puede desactivar un empleado que tenga algún contrato `ACTIVE`. | application | `EMP-003` |
 | BR-EMP-007 | No se crean contratos para un empleado `INACTIVE` (complementa BR-CTR-001). | application | `EMP-004` |
@@ -199,7 +199,7 @@ No tiene restricciones por estado de los contratos del empleado ni emite evento 
 
 ### Detalle: `ListEmployeesUseCase`
 
-1. Filtros opcionales y combinables: documento (tipo + número, exacto), nombre (parcial, sin mayúsculas ni tildes, en nombres y apellidos — BR-EMP-004) y estado (`ACTIVE` por defecto; `INACTIVE` o todos si se indica). El filtro por estado se incorpora junto con `DeactivateEmployeeUseCase`; hasta entonces todos los empleados están activos.
+1. Filtros opcionales: documento (tipo + número, exacto) **o** nombre (parcial, sin mayúsculas ni tildes, en nombres y apellidos); documento y nombre no se combinan (BR-EMP-004). Además, estado (`ACTIVE` por defecto; `INACTIVE` o todos si se indica). El filtro por estado se incorpora junto con `DeactivateEmployeeUseCase`; hasta entonces todos los empleados están activos.
 2. Paginado y ordenado según `architecture.md` §6 (por defecto, apellidos ascendente).
 
 ### Detalle: `DeactivateEmployeeUseCase`

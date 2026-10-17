@@ -98,6 +98,13 @@ class ListEmployeesServiceTest {
                 .extracting("code").isEqualTo("VAL-001");
     }
 
+    @Test
+    void shouldRejectQueryWhenDocumentAndNameAreCombined() {
+        assertThatThrownBy(() -> query(DocumentType.DNI, "12345678", "perez"))
+                .isInstanceOf(InvalidValueException.class)
+                .hasMessageContaining("not both");
+    }
+
     @ParameterizedTest
     @CsvSource({"-1, 20", "0, 0", "0, 101"})
     void shouldRejectQueryWhenPagingIsOutOfRange(int page, int size) {

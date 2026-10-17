@@ -296,19 +296,39 @@ class EmployeeControllerTest {
     }
 
     @Test
-    void shouldMapFiltersPagingAndSortWhenListingWithParameters() throws Exception {
+    void shouldMapNameFilterPagingAndSortWhenListingWithParameters() throws Exception {
         // Given
         when(listEmployeesUseCase.list(any())).thenReturn(new PageResult<>(List.of(), 2, 5, 0));
 
         // When / Then
         mockMvc.perform(get(URL).with(jwt())
-                        .param("documentType", "DNI").param("documentNumber", "12345678")
                         .param("name", "pérez").param("page", "2").param("size", "5")
                         .param("sort", "documentNumber,desc"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
-        verify(listEmployeesUseCase).list(new EmployeeSearchQuery(DocumentType.DNI, "12345678", "pérez", 2, 5,
+        verify(listEmployeesUseCase).list(new EmployeeSearchQuery(null, null, "pérez", 2, 5,
                 EmployeeSortField.DOCUMENT_NUMBER, SortDirection.DESC));
+    }
+
+    @Test
+    void shouldMapDocumentFilterWhenListingByDocument() throws Exception {
+        // Given
+        when(listEmployeesUseCase.list(any())).thenReturn(new PageResult<>(List.of(), 0, 20, 0));
+
+        // When / Then
+        mockMvc.perform(get(URL).with(jwt()).param("documentType", "DNI").param("documentNumber", "12345678"))
+                .andExpect(status().isOk());
+        verify(listEmployeesUseCase).list(new EmployeeSearchQuery(DocumentType.DNI, "12345678", null, 0, 20,
+                EmployeeSortField.LAST_NAMES, SortDirection.ASC));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenDocumentAndNameFiltersAreCombined() throws Exception {
+        mockMvc.perform(get(URL).with(jwt()).param("documentType", "DNI").param("documentNumber", "12345678")
+                        .param("name", "perez"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("documentFilterExclusive"));
+        verifyNoInteractions(listEmployeesUseCase);
     }
 
     @Test

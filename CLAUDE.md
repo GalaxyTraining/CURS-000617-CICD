@@ -8,6 +8,9 @@ Contexto base del repositorio. Este archivo es el punto de entrada: es breve y e
 |---|---|---|
 | @docs/architecture.md | Capas, módulos, reglas de dependencia, convenciones de código, API REST, errores y pruebas | Siempre que se cree o modifique código |
 | @docs/business-rules.md | Glosario, entidades, invariantes, casos de uso y estados del dominio | Antes de implementar o cambiar lógica de negocio |
+| docs/technical.md | Estado implementado: endpoints, seguridad, variables de entorno, esquema de BD, build y CI/CD | Al cambiar endpoints, configuración, migraciones o el pipeline (actualizarlo en el mismo cambio) |
+| docs/guides/arquitectura.md | Guía visual de la arquitectura: diagramas de módulos, puertos y adaptadores, dominio y flujos | Para orientarse en el código; actualizar sus diagramas si cambia la estructura |
+| docs/guides/ci-cd.md | Guía práctica de CI/CD: flujo de PR, pipeline, versiones e imágenes | Al cambiar el pipeline, el `Dockerfile` o el flujo de ramas |
 | @docs/prompts/prompts.md | Prompts reutilizables para tareas frecuentes | Al iniciar una tarea recurrente (nuevo caso de uso, revisión, ADR, etc.) |
 
 ## 1. Descripción del proyecto

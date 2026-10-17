@@ -87,6 +87,12 @@ infrastructure/
     rest/                 # Controllers y mappers Request/Response ↔ Command/Result
     rest/error/           # @RestControllerAdvice y traducción a Problem Details
   client/                 # Adaptadores de servicios externos (<Sistema>RestClientAdapter)
+  security/               # Spring Security (ADR-0005); adaptadores de puertos de identidad
+    authn/                # Autenticación de credenciales (CredentialsAuthenticatorAdapter)
+    config/               # Cadenas de filtros y propiedades de seguridad
+    crypto/               # Hash de contraseñas y de refresh tokens (PasswordHasherAdapter)
+    handler/              # Errores 401/403 como Problem Details
+    jwt/                  # Emisión y validación de JWT (TokenIssuerAdapter)
   config/                 # @Configuration: registro de casos de uso como beans, propiedades, etc.
 ```
 
@@ -109,7 +115,7 @@ infrastructure/
 6. **Un caso de uso = una clase = una operación de negocio.** Nada de "servicios dios".
 7. **Los puertos de salida los define `application`** y los implementa `infrastructure` (`persistence`, `client`).
 8. **Las invariantes de negocio viven en el dominio**, no en controllers ni en validaciones de Bean Validation.
-9. **Aislamiento dentro de `infrastructure`:** `api` solo invoca puertos de entrada (`port.in`); nunca usa `persistence` ni `client` directamente. `persistence` y `client` no dependen de `api`.
+9. **Aislamiento dentro de `infrastructure`:** `api` solo invoca puertos de entrada (`port.in`); nunca usa `persistence`, `client` ni `security` directamente. `persistence`, `client` y `security` no dependen de `api`.
 
 > Estas reglas se verifican en la revisión de código (ver `prompts/prompts.md`, sección 5). No hay verificación automática con ArchUnit (ADR-0003).
 

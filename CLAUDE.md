@@ -32,7 +32,7 @@ Contexto base del repositorio. Este archivo es el punto de entrada: es breve y e
 | Documentación API | springdoc-openapi (OpenAPI 3) |
 | Observabilidad | Micrometer + OpenTelemetry, logs estructurados en JSON |
 | Pruebas | JUnit 5, AssertJ, Mockito, Testcontainers, spring-security-test; cobertura con JaCoCo (≥ 80 % de líneas en `domain` y `application`) |
-| CI/CD | GitHub Actions (`.github/workflows/ci-cd.yml`), imagen Docker en GHCR, GitHub Flow (ADR-0009) |
+| CI/CD | GitHub Actions (`.github/workflows/ci-cd.yml`), imagen Docker en GHCR, GitHub Flow (ADR-0009); `Jenkinsfile` solo para Jenkins local de práctica (ADR-0010) |
 
 ## 3. Comandos habituales
 

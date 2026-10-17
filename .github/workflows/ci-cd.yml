@@ -106,7 +106,7 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-            name=docker.io/${{ vars.DOCKERHUB_USERNAME }}/contract-api,enable=${{ vars.DOCKERHUB_USERNAME != '' }}
+            name=docker.io/${{ vars.DOCKERHUB_USERNAME }}/curs-000617-cicd,enable=${{ vars.DOCKERHUB_USERNAME != '' }}
           tags: |
             type=ref,event=pr
             type=sha,format=short

@@ -42,6 +42,7 @@ Contexto base del repositorio. Este archivo es el punto de entrada: es breve y e
 ./mvnw spring-boot:run -pl infrastructure  # Levantar la API
 docker compose up -d                  # Levantar dependencias locales (PostgreSQL y pgAdmin)
 docker build -t contract-api .        # Construir la imagen (perfil prod)
+docker compose -f docker/jenkins/docker-compose.yml up -d --build  # Jenkins local de práctica (ADR-0010)
 ```
 
 ## 3.1 Flujo de Git (GitHub Flow, ADR-0009)

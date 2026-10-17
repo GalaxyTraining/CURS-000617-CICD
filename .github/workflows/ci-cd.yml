@@ -1,6 +1,7 @@
 # CI/CD de contract-api (ADR-0009).
 # - Pull Request a main: build, pruebas (Testcontainers), cobertura y build de la imagen sin publicarla.
-# - Push a main: lo anterior y publicación de la imagen en GHCR (latest + sha).
+# - Push a main: lo anterior y publicación de la imagen en GHCR (latest + sha) y, si está configurado,
+#   en Docker Hub (variable DOCKERHUB_USERNAME y secreto DOCKERHUB_TOKEN).
 # - Tag vX.Y.Z: publicación con las etiquetas de versión.
 name: CI/CD
 
@@ -90,12 +91,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Opcional: sin la variable DOCKERHUB_USERNAME (p. ej. en un fork) solo se publica en GHCR.
+      - name: Login en Docker Hub
+        if: github.event_name != 'pull_request' && vars.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       # El nombre de la imagen se normaliza a minúsculas (ghcr.io/galaxytraining/curs-000617-cicd).
       - name: Etiquetas
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: |
+            ghcr.io/${{ github.repository }}
+            name=docker.io/${{ vars.DOCKERHUB_USERNAME }}/curs-000617-cicd,enable=${{ vars.DOCKERHUB_USERNAME != '' }}
           tags: |
             type=ref,event=pr
             type=sha,format=short

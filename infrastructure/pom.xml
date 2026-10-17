@@ -14,6 +14,11 @@
     <name>contract-api :: infrastructure</name>
     <description>Adaptadores de entrada y salida, configuración de Spring y clase main.</description>
 
+    <properties>
+        <!-- architecture.md §9 fija el umbral solo para domain y application; aquí solo hay informe -->
+        <jacoco.check.skip>true</jacoco.check.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>pe.edu.galaxy.training.ia.ca</groupId>
